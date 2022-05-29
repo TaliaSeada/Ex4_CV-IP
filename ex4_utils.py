@@ -218,6 +218,7 @@ def warpImag(src_img: np.ndarray, dst_img: np.ndarray) -> None:
     """
 
     dst_p = []
+    src_p = []
     fig1 = plt.figure()
 
     def onclick_1(event):
@@ -238,8 +239,39 @@ def warpImag(src_img: np.ndarray, dst_img: np.ndarray) -> None:
     plt.show()
     dst_p = np.array(dst_p)
 
-    ##### Your Code Here ######
+    def onclick_2(event):
+        x = event.xdata
+        y = event.ydata
+        print("Loc: {:.0f},{:.0f}".format(x, y))
 
-    # out = dst_img * mask + src_out * (1 - mask)
-    # plt.imshow(out)
-    # plt.show()
+        plt.plot(x, y, '*r')
+        src_p.append([x, y])
+
+        if len(src_p) == 4:
+            plt.close()
+        plt.show()
+
+    fig2 = plt.figure()
+    # display image 2
+    cid = fig2.canvas.mpl_connect('button_press_event', onclick_2)
+    plt.gray()
+    plt.imshow(src_img)
+    plt.show()
+    src_p = np.array(src_p)
+
+    M, m = cv2.findHomography(src_p, dst_p)
+    warp = np.zeros(dst_img.shape)
+    for i in range(src_img.shape[0]):
+        for j in range(src_img.shape[1]):
+            xy = np.array([j, i, 1]).T
+            new_p = M @ xy
+            y_ = int(new_p[0] / new_p[-1])
+            x_ = int(new_p[1] / new_p[-1])
+            if 0 <= x_ < src_img.shape[0] and 0 <= y_ < src_img.shape[1]:
+                warp[x_, y_] = src_img[i, j]
+            else:
+                warp[x_, y_] = src_img[i, j]
+    mask = warp == 0
+    out = dst_img * mask + warp * (1 - mask)
+    plt.imshow(out)
+    plt.show()
