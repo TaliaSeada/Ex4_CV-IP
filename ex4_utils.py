@@ -3,172 +3,71 @@ import math
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import cv2 as cv
-from scipy.ndimage import filters
 
 
 def disparitySSD(img_l: np.ndarray, img_r: np.ndarray, disp_range: (int, int), k_size: int) -> np.ndarray:
     """
     img_l: Left image
     img_r: Right image
-    range: Minimun and Maximum disparity range. Ex. (10,80)
+    range: Minimum and Maximum disparity range. Ex. (10,80)
     k_size: Kernel size for computing the SSD, kernel.shape = (k_size*2+1,k_size*2+1)
+
     return: Disparity map, disp_map.shape = Left.shape
     """
+    ker_size = (k_size * 2 + 1)
+    disp_map = np.zeros(img_l.shape)
 
-    img_l = (img_l * 255.0).astype(np.uint8)
-    img_r = (img_r * 255.0).astype(np.uint8)
-    # L = cv2.cvtColor(img_l, cv2.COLOR_RGB2GRAY)
-    # R = cv2.cvtColor(img_r, cv2.COLOR_RGB2GRAY)
-    return disp(img_l, img_r, disp_range, k_size, SSD) / 255.0
+    for row in range(img_l.shape[0] - ker_size):
+        for col in range(img_l.shape[1] - ker_size):
+            shift = 0
+            min_ssd = np.inf
+            for offset in range(disp_range[0], disp_range[1]):
+                if col - offset >= 0 and col - offset + ker_size < img_r.shape[1]:
+                    window = img_r[row: row + ker_size, col - offset: col - offset + ker_size]
+                    SSD = np.sum((img_l[row: row + ker_size, col: col + ker_size] - window) ** 2)
 
-
-def SSD(img_l, img_r, r, c, k_size, disp_range):
-    """
-    :param img_l:
-    :param img_r:
-    :param r:
-    :param c:
-    :param k_size:
-    :param disp_range:
-    :return:
-    """
-
-    ymin = 0
-    _min = np.inf
-    X = img_l[(r - k_size): (r + k_size), (c - k_size): (c + k_size)]
-
-    for col in range(c - disp_range[1] // 2, c + disp_range[1] // 2):
-        if np.abs(col - c) < disp_range[0] // 2:
-            continue
-        if col - k_size < 0:
-            continue
-        if col + k_size > img_r.shape[1]:
-            break
-
-        X_ = img_r[(r - k_size): (r + k_size), (col - k_size): col + k_size]
-
-        _sum = np.sum((X - X_) ** 2)
-        if _sum < _min:
-            _min = _sum
-            ymin = col
-
-    return ymin
+                if SSD < min_ssd:
+                    min_ssd = SSD
+                    shift = offset
+            disp_map[row][col] = shift
+    return disp_map
 
 
 def disparityNC(img_l: np.ndarray, img_r: np.ndarray, disp_range: (int, int), k_size: int) -> np.ndarray:
     """
     img_l: Left image
     img_r: Right image
-    range: Minimun and Maximum disparity range. Ex. (10,80)
-    k_size: Kernel size for computing the SSD, kernel.shape = (k_size*2+1,k_size*2+1)
+    range: The Maximum disparity range. Ex. 80
+    k_size: Kernel size for computing the NormCorolation, kernel.shape = (k_size*2+1,k_size*2+1)
+
     return: Disparity map, disp_map.shape = Left.shape
     """
-
-    img_l = (img_l * 255.0).astype(np.uint8)
-    img_r = (img_r * 255.0).astype(np.uint8)
-    # L = cv2.cvtColor(img_l, cv2.COLOR_RGB2GRAY)
-    # R = cv2.cvtColor(img_r, cv2.COLOR_RGB2GRAY)
-    return disp(img_l, img_r, disp_range, k_size, NC)
-
-
-def NC(img_l, img_r, r, c, k_size, disp_range):
-    ymin = 0
-    _max = 0
-    X = img_l[(r - k_size): (r + k_size), (c - k_size): (c + k_size)]
-
-    for col in range(c - disp_range[1] // 2, c + disp_range[1] // 2):
-        if col - k_size < 0:
-            continue
-        if col + k_size > img_r.shape[1]:
-            break
-        X_ = img_r[(r - k_size): (r + k_size), (col - k_size): col + k_size]
-        product = (X - np.mean(X)) * (X_ - np.mean(X_))
-        stds = np.std(X) * np.std(X_)
-        _sum = np.sum(product / stds)
-        _sum /= X.size
-
-        if _sum > _max:
-            _max = _sum
-            ymin = col
-
-    return ymin
-
-
-def disp(img_l: np.ndarray, img_r: np.ndarray, disp_range: (int, int), k_size: int, Similarity_Measure):
+    ker_size = (k_size * 2 + 1)
     disp_map = np.zeros(img_l.shape)
-    for r in range(k_size, img_l.shape[0] - k_size):
-        for c in range(k_size, img_r.shape[1] - k_size):
-            y = Similarity_Measure(img_l, img_r, r, c, k_size, disp_range)
-            disp_map[r][c] = abs(y - c) / 255
-    return disp_map
 
-# def disparitySSD(img_l: np.ndarray, img_r: np.ndarray, disp_range: (int, int), k_size: int) -> np.ndarray:
-#     """
-#     img_l: Left image
-#     img_r: Right image
-#     range: Minimum and Maximum disparity range. Ex. (10,80)
-#     k_size: Kernel size for computing the SSD, kernel.shape = (k_size*2+1,k_size*2+1)
-#
-#     return: Disparity map, disp_map.shape = Left.shape
-#     """
-#     ker_size = (k_size * 2 + 1)
-#     disp_map = np.zeros(img_l.shape)
-#
-#     for row in range(img_l.shape[0]):
-#         for col in range(img_l.shape[1]):
-#             shift = 0
-#             min_ssd = np.inf
-#             for offset in range(disp_range[0], disp_range[1]):
-#                 SSD = 0
-#                 for x in range(0, ker_size):
-#                     for y in range(0, ker_size):
-#                         if 0 <= row + x - offset < img_r.shape[0] and 0 <= col + y - offset < img_r.shape[1]:
-#                             SSD += ((img_l[row, col]) - (img_r[row + x - offset, col + y - offset])) ** 2
-#
-#                 if SSD < min_ssd:
-#                     min_ssd = SSD
-#                     shift = offset
-#             disp_map[row][col] = shift
-#     # img_l = cv.imread('input/pair0-L.png', 0)
-#     # img_r = cv.imread('input/pair0-R.png', 0)
-#     # stereo = cv.StereoBM_create(numDisparities=16, blockSize=15)
-#     # disparity = stereo.compute(img_l, img_r)
-#     # plt.imshow(disparity, 'gray')
-#     # plt.show()
-#     return disp_map
-#
-#
-# def disparityNC(img_l: np.ndarray, img_r: np.ndarray, disp_range: (int, int), k_size: int) -> np.ndarray:
-#     """
-#     img_l: Left image
-#     img_r: Right image
-#     range: The Maximum disparity range. Ex. 80
-#     k_size: Kernel size for computing the NormCorolation, kernel.shape = (k_size*2+1,k_size*2+1)
-#
-#     return: Disparity map, disp_map.shape = Left.shape
-#     """
-#     ker_size = (k_size * 2 + 1)
-#     disp_map = np.zeros(img_l.shape)
-#
-#     for row in range(img_l.shape[0]):
-#         for col in range(img_l.shape[1]):
-#             max_corr = -np.inf
-#             for offset in range(disp_range[0], disp_range[1]):
-#                 corr = 0
-#                 l = 0
-#                 r = 0
-#                 for x in range(0, ker_size):
-#                     for y in range(0, ker_size):
-#                         if 0 <= row + x - offset < img_r.shape[0] and 0 <= col + y - offset < img_r.shape[1]:
-#                             corr += ((img_l[row, col]) * (img_r[row + x - offset, col + y - offset]))
-#                             l += ((img_r[row, col]) * (img_r[row + x - offset, col + y - offset]))
-#                             r += ((img_l[k_size, k_size]) * (img_l[k_size + x - offset, k_size + y - offset]))
-#
-#                 if corr > max_corr:
-#                     max_corr = corr
-#             disp_map[row][col] = corr / math.sqrt(l * r)
-#     return disp_map
+    for row in range(img_l.shape[0] - ker_size):
+        for col in range(img_l.shape[1] - ker_size):
+            shift = 0
+            max_NClr = -np.inf
+            for offset in range(disp_range[0], disp_range[1]):
+                NClr = 0
+                if col - offset >= 0 and col - offset + ker_size < img_r.shape[1]:
+                    window = img_r[row: row + ker_size, col - offset: col - offset + ker_size]
+                    Rlr = np.sum((img_l[row: row + ker_size, col: col + ker_size] * window))
+                    Rrr = np.sum(window ** 2)
+                    Rll = np.sum(img_r[row: row + ker_size, col: col + ker_size] * window)
+
+                    sqr = np.sqrt(Rrr*Rll)
+                    if sqr != 0:
+                        NClr = Rlr / sqr
+                    else:
+                        print("sqr is 0")
+
+                if NClr > max_NClr:
+                    max_NClr = NClr
+                    shift = offset
+            disp_map[row][col] = shift
+    return disp_map
 
 
 def computeHomography(src_pnt: np.ndarray, dst_pnt: np.ndarray) -> (np.ndarray, float):
@@ -185,8 +84,12 @@ def computeHomography(src_pnt: np.ndarray, dst_pnt: np.ndarray) -> (np.ndarray, 
     # create A
     A = []
     for i in range(len(src_pnt)):
-        A.append([src_pnt[i][0], src_pnt[i][1], 1, 0, 0, 0, -dst_pnt[i][0] * src_pnt[i][0], -dst_pnt[i][0] * src_pnt[i][1], -dst_pnt[i][0]])
-        A.append([0, 0, 0, src_pnt[i][0], src_pnt[i][1], 1, -dst_pnt[i][1] * src_pnt[i][0], -dst_pnt[i][1] * src_pnt[i][1], -dst_pnt[i][1]])
+        A.append(
+            [src_pnt[i][0], src_pnt[i][1], 1, 0, 0, 0, -dst_pnt[i][0] * src_pnt[i][0], -dst_pnt[i][0] * src_pnt[i][1],
+             -dst_pnt[i][0]])
+        A.append(
+            [0, 0, 0, src_pnt[i][0], src_pnt[i][1], 1, -dst_pnt[i][1] * src_pnt[i][0], -dst_pnt[i][1] * src_pnt[i][1],
+             -dst_pnt[i][1]])
     A = np.array(A)
 
     U, S, Vh = np.linalg.svd(np.asarray(A))
@@ -201,7 +104,7 @@ def computeHomography(src_pnt: np.ndarray, dst_pnt: np.ndarray) -> (np.ndarray, 
         dst.append(np.append(dst_pnt[i], 1))
     src = np.transpose(src)
     dst = np.transpose(dst)
-    E = np.sqrt(sum((M.dot(src) / M.dot(src)[-1] - dst)**2))
+    E = np.sqrt(np.sum((M.dot(src) / M.dot(src)[-1] - dst) ** 2))
     return M, E
 
 
@@ -260,18 +163,18 @@ def warpImag(src_img: np.ndarray, dst_img: np.ndarray) -> None:
     src_p = np.array(src_p)
 
     M, m = cv2.findHomography(src_p, dst_p)
-    warp = np.zeros(dst_img.shape)
+    proj_src = np.zeros(dst_img.shape)
     for i in range(src_img.shape[0]):
         for j in range(src_img.shape[1]):
             xy = np.array([j, i, 1]).T
-            new_p = M @ xy
+            new_p = M.dot(xy)
             y_ = int(new_p[0] / new_p[-1])
             x_ = int(new_p[1] / new_p[-1])
-            if 0 <= x_ < src_img.shape[0] and 0 <= y_ < src_img.shape[1]:
-                warp[x_, y_] = src_img[i, j]
-            else:
-                warp[x_, y_] = src_img[i, j]
-    mask = warp == 0
-    out = dst_img * mask + warp * (1 - mask)
-    plt.imshow(out)
+            try:
+                proj_src[x_, y_] = src_img[i, j]
+            except IndexError:
+                continue
+    mask = proj_src == 0
+    canvas = dst_img * mask + (1 - mask) * proj_src
+    plt.imshow(canvas)
     plt.show()
